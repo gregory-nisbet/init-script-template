@@ -9,6 +9,10 @@
 # Description:       Enable service provided by daemon.
 ### END INIT INFO
 
+# TODO: need to figure out how to get rid of sudo in this script
+# also, graceful ways to kill multiple child processes and start
+# process groups
+
 dir=""
 cmd=""
 user=""
