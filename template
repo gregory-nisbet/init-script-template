@@ -12,8 +12,10 @@
 dir=""
 cmd=""
 user=""
+mypid=""
+exit_status=0
 
-name=`basename $0`
+name="$(basename "$0")"
 pid_file="/var/run/$name.pid"
 stdout_log="/var/log/$name.log"
 stderr_log="/var/log/$name.err"
@@ -23,48 +25,44 @@ get_pid() {
 }
 
 is_running() {
-    [ -f "$pid_file" ] && ps `get_pid` > /dev/null 2>&1
+    [ -f "$pid_file" ] && ps "$(get_pid)" 1>/dev/null 2>/dev/null
 }
 
-case "$1" in
-    start)
+start() {
     if is_running; then
         echo "Already started"
     else
         echo "Starting $name"
-        cd "$dir"
-        if [ -z "$user" ]; then
-            sudo $cmd >> "$stdout_log" 2>> "$stderr_log" &
-        else
-            sudo -u "$user" $cmd >> "$stdout_log" 2>> "$stderr_log" &
-        fi
-        echo $! > "$pid_file"
-        if ! is_running; then
-            echo "Unable to start, see $stdout_log and $stderr_log"
-            exit 1
-        fi
     fi
-    ;;
-    stop)
+    cd "$dir"
+
+    if [ -z "$user"] ; then
+        1>>"$stdout_log" 2>>"$stderr_log" sudo -- $cmd &
+        mypid="$!"
+    else
+        1>>"$stdout_log" 2>>"$stderr_log" sudo -- $cmd &
+        mypid="$!"
+    fi
+}
+
+stop() {
     if is_running; then
         echo -n "Stopping $name.."
-        kill `get_pid`
-        i=1
-        while [ "$i" -le 10 ];
-        do
+        kill -TERM "$(get_pid)"
+        
+        for i in 1 2 3 4 5 6 7 8 9 10; do
             if ! is_running; then
                 break
             fi
 
             echo -n "."
             sleep 1
-            i=$((i+1))
         done
         echo
 
         if is_running; then
             echo "Not stopped; may still be shutting down or shutdown may have failed"
-            exit 1
+            exit_status=1
         else
             echo "Stopped"
             if [ -f "$pid_file" ]; then
@@ -74,27 +72,48 @@ case "$1" in
     else
         echo "Not running"
     fi
-    ;;
-    restart)
-    $0 stop
+}
+
+restart() {
+    stop
     if is_running; then
         echo "Unable to stop, will not attempt to start"
-        exit 1
+        exit_status=1
+    else
+        start
     fi
-    $0 start
-    ;;
-    status)
+}
+
+status() {
     if is_running; then
         echo "Running"
     else
         echo "Stopped"
-        exit 1
+        exit_status=1
     fi
-    ;;
-    *)
+}
+
+usage() {
     echo "Usage: $0 {start|stop|restart|status}"
-    exit 1
-    ;;
+    exit_status=1
+}
+
+case "$1" in
+    start) 
+        start
+        ;;
+    stop) 
+        stop
+        ;;
+    restart)
+        restart
+        ;;
+    status)
+        status
+        ;;
+    *) 
+        usage
+        ;;
 esac
 
-exit 0
+exit "$status"
