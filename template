@@ -46,7 +46,7 @@ start() {
     echo "$mypid" > "$pid_file"
     if ! is_running; then
         echo "Unable to start, see $stdout_log and $stderr_log"
-        exit 1
+        exit_status=1
     fi
 }
 
